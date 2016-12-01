@@ -114,7 +114,6 @@ public class AccidentDataWriter implements Runnable{
 				List<RoadAccidentDetails> roadAccidentDetails = new ArrayList<RoadAccidentDetails>();
 				roadAccidentDetails = roadAccidentDetailsBlockingQueue.take();
 				if (roadAccidentDetails != null && roadAccidentDetails.size() == 1 && roadAccidentDetails.get(0).getAccidentId().equals("StopWrite")) {
-					long end = System.currentTimeMillis();
 					break;
 				}
 				writeAccidentData(roadAccidentDetails);

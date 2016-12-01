@@ -87,7 +87,6 @@ public class AccidentDataReader implements Runnable{
 
 	@Override
 	public void run() {
-	long start = System.currentTimeMillis();
 		while(true){
 			if(hasFinished()){				
 				try {
