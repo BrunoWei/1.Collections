@@ -13,11 +13,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 
 /**
  * Created by Tanmoy on 6/17/2016.
  */
-public class AccidentDataWriter {
+public class AccidentDataWriter implements Runnable{
 
     private String dataFileName;
     private CSVFormat outputDataFormat = CSVFormat.EXCEL.withHeader();
@@ -26,7 +27,18 @@ public class AccidentDataWriter {
     private static final Object [] FILE_HEADER = {"Accident_Index","Longitude","Latitude","Police_Force","Accident_Severity","Number_of_Vehicles","Number_of_Casualties","Date","Time","Local_Authority_(District)","LightCondition","WeatherCondition","RoadSafeCondition","Police_Force_Contact"};
     private Logger log = LoggerFactory.getLogger(AccidentDataWriter.class);
 
-    public void init(String dataFileName){
+    protected BlockingQueue<List<RoadAccidentDetails>> roadAccidentDetailsBlockingQueue = null;
+
+    public AccidentDataWriter() {
+		super();
+	}
+    
+    public AccidentDataWriter(BlockingQueue<List<RoadAccidentDetails>> roadAccidentDetailsBlockingQueue) {
+		super();
+		this.roadAccidentDetailsBlockingQueue = roadAccidentDetailsBlockingQueue;
+	}
+
+	public void init(String dataFileName){
         this.dataFileName = dataFileName;
         try {
             File dataFile = new File(dataFileName);
@@ -41,13 +53,15 @@ public class AccidentDataWriter {
         }
     }
 
-    public void writeAccidentData(List<RoadAccidentDetails> accidentDetailsList){
+	public void writeAccidentData(List<RoadAccidentDetails> accidentDetailsList){
         try {
             if (!isHeaderWritten){
                 csvFilePrinter.printRecord(FILE_HEADER);
                 isHeaderWritten = true;
             }
-            for (RoadAccidentDetails accidentDetails : accidentDetailsList){
+            List<RoadAccidentDetails> accidentDetailsListCopy = new ArrayList<RoadAccidentDetails>();
+            accidentDetailsListCopy.addAll(accidentDetailsList);
+            for (RoadAccidentDetails accidentDetails : accidentDetailsListCopy){
                 csvFilePrinter.printRecord(getCsvRecord(accidentDetails));
             }
             Util.sleepToSimulateDataHeavyProcessing();
@@ -92,4 +106,23 @@ public class AccidentDataWriter {
         RoadAccident roadAccident = roadAccidentBuilder.withAccidentSeverity("1").build();
 
     }
+
+	@Override
+	public void run() {
+		while(true){
+			try {
+				List<RoadAccidentDetails> roadAccidentDetails = new ArrayList<RoadAccidentDetails>();
+				roadAccidentDetails = roadAccidentDetailsBlockingQueue.take();
+				if (roadAccidentDetails != null && roadAccidentDetails.size() == 1 && roadAccidentDetails.get(0).getAccidentId().equals("StopWrite")) {
+					long end = System.currentTimeMillis();
+					break;
+				}
+				writeAccidentData(roadAccidentDetails);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			
+		}
+				
+	}
 }

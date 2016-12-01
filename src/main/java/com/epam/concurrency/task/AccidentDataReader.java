@@ -2,6 +2,8 @@ package com.epam.concurrency.task;
 
 
 import com.epam.data.RoadAccident;
+import com.epam.data.RoadAccidentBuilder;
+
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -13,8 +15,9 @@ import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 
-public class AccidentDataReader {
+public class AccidentDataReader implements Runnable{
 
     private Integer batchSize;
     private String dataFileName;
@@ -25,9 +28,15 @@ public class AccidentDataReader {
 
     private Iterator<CSVRecord> recordIterator;
     private Logger log = LoggerFactory.getLogger(AccidentDataReader.class);
+    
+    protected BlockingQueue<List<RoadAccident>> roadAccidentBlockingQueue = null;
 
+    public AccidentDataReader(BlockingQueue<List<RoadAccident>> roadAccidentBlockingQueue) {
+		super();
+		this.roadAccidentBlockingQueue = roadAccidentBlockingQueue;
+	}
 
-    public void init(int batchSize, String dataFileName){
+	public void init(int batchSize, String dataFileName){
         this.batchSize = batchSize;
         this.dataFileName = dataFileName;
         batchCount = 0;
@@ -75,4 +84,28 @@ public class AccidentDataReader {
     public boolean hasFinished(){
         return hasFinished;
     }
+
+	@Override
+	public void run() {
+	long start = System.currentTimeMillis();
+		while(true){
+			if(hasFinished()){				
+				try {
+					List<RoadAccident> exitList = new ArrayList<RoadAccident>();
+					 RoadAccidentBuilder roadAccidentBuilder =  new RoadAccidentBuilder("StopEnrich");
+					 RoadAccident ra = roadAccidentBuilder.build();
+					exitList.add(ra);
+					roadAccidentBlockingQueue.put(exitList);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				break;
+			}
+			try {
+	        	roadAccidentBlockingQueue.put(getNextBatch());
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}	
+	}
 }

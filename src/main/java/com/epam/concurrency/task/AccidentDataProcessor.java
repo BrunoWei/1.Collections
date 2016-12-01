@@ -6,6 +6,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 
 /**
  * Created by Tanmoy on 6/17/2016.
@@ -20,10 +22,14 @@ public class AccidentDataProcessor {
     private static final String OUTPUT_FILE_PATH = "target/DfTRoadSafety_Accidents_consolidated.csv";
 
     private static final int DATA_PROCESSING_BATCH_SIZE = 10000;
+    
+    protected BlockingQueue<List<RoadAccident>> roadAccidentBlockingQueue = new ArrayBlockingQueue<List<RoadAccident>>(1024);
 
-    private AccidentDataReader accidentDataReader = new AccidentDataReader();
-    private AccidentDataEnricher accidentDataEnricher = new AccidentDataEnricher();
-    private AccidentDataWriter accidentDataWriter = new AccidentDataWriter();
+	protected BlockingQueue<List<RoadAccidentDetails>> roadAccidentDetailsBlockingQueue = new ArrayBlockingQueue<List<RoadAccidentDetails>>(1024);
+
+    private AccidentDataReader accidentDataReader = new AccidentDataReader(roadAccidentBlockingQueue);
+    private AccidentDataEnricher accidentDataEnricher = new AccidentDataEnricher(roadAccidentBlockingQueue, roadAccidentDetailsBlockingQueue);
+    private AccidentDataWriter accidentDataWriter = new AccidentDataWriter(roadAccidentDetailsBlockingQueue);
 
     private List<String> fileQueue = new ArrayList<String>();
 
@@ -48,15 +54,21 @@ public class AccidentDataProcessor {
     }
 
     private void processFile(){
-        int batchCount = 1;
-        while (!accidentDataReader.hasFinished()){
-            List<RoadAccident> roadAccidents = accidentDataReader.getNextBatch();
-            log.info("Read [{}] records in batch [{}]", roadAccidents.size(), batchCount++);
-            List<RoadAccidentDetails> roadAccidentDetailsList = accidentDataEnricher.enrichRoadAccidentData(roadAccidents);
-            log.info("Enriched records");
-            accidentDataWriter.writeAccidentData(roadAccidentDetailsList);
-            log.info("Written records");
-        }
+//        int batchCount = 1;
+        Thread readerThread = new Thread(accidentDataReader);
+    	Thread enrichThread = new Thread(accidentDataEnricher);
+    	Thread writeThread = new Thread(accidentDataWriter);
+    	readerThread.start();
+    	enrichThread.start();
+    	writeThread.start();
+//        while (!accidentDataReader.hasFinished()){        	
+//            List<RoadAccident> roadAccidents = accidentDataReader.getNextBatch();
+//            log.info("Read [{}] records in batch [{}]", roadAccidents.size(), batchCount++);
+//            List<RoadAccidentDetails> roadAccidentDetailsList = accidentDataEnricher.enrichRoadAccidentData(roadAccidents);
+//            log.info("Enriched records");
+//            accidentDataWriter.writeAccidentData(roadAccidentDetailsList);
+//            log.info("Written records");
+//        }
     }
 
 
